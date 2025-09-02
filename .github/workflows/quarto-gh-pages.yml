@@ -16,10 +16,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Quarto
-        uses: quarto-dev/quarto-action@v2
-        with:
-          install: true
+      - name: Install Quarto CLI
+        run: |
+          # Install Quarto CLI by downloading the latest Debian package
+          wget https://quarto.org/download/latest/quarto-linux-amd64.deb -O quarto.deb
+          sudo apt-get update
+          sudo apt-get install -y ./quarto.deb
+          quarto --version
 
       - name: Render Quarto site (no execute)
         # Render without executing code so CI does not need local data files; output to docs/
