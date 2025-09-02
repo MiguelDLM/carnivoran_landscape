@@ -1,0 +1,33 @@
+name: Render and deploy Quarto site to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  render-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-action@v2
+        with:
+          install: true
+
+      - name: Render Quarto site (no execute)
+        # Render without executing code so CI does not need local data files; output to docs/
+        run: |
+          quarto render --no-execute --output-dir docs
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
