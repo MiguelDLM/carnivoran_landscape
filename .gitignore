@@ -1,0 +1,29 @@
+mandibles.xlsx
+PBDB_carnivora_env.RData
+PBDB_carnivora.qmd
+
+# Common R/Quarto/devignores
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+
+# Quarto source files (if you don't want to publish qmd sources)
+*.qmd
+
+# Excel and other spreadsheet data
+*.xlsx
+*.xls
+
+# R saved objects
+*.rda
+*.rds
+
+# Quarto build artifacts
+_site/
+.quarto/
+.cache/
+
+# renv
+renv/library/
+.Renv/
