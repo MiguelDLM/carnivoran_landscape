@@ -32,3 +32,4 @@ renv/library/
 .~lock*
 *~lock*
 *~
+/.quarto/
