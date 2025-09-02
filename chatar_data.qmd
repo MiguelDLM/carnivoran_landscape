@@ -1,0 +1,124 @@
+---
+title: "Carnivoran jaws available"
+author: "E. Miguel Díaz de León-Muñoz"
+date: "`r Sys.Date()`"
+format:
+  html:
+    theme: cosmo
+    toc: false
+    code-fold: true
+    page-layout: full
+execute:
+  echo: true
+  warning: false
+---
+
+
+```{r}
+#load RData
+load("PBDB_carnivora_env.RData")
+```
+
+# Interactive Sunburst Chart
+
+```{r}
+# Interactive sunburst chart (3-level): Root > Family > Availability > Extant Status
+library(plotly)
+library(dplyr)
+library(tibble)
+library(htmltools)
+
+# Prepare data for sunburst: ensure we have the columns and clean values
+mandibles_dataset <- mandibles_dataset %>%
+  mutate(
+    family = ifelse(!is.null(family.y) & !is.na(family.y) & family.y != "", as.character(family.y), "Unknown"),
+    availability = ifelse(is.na(availability) | availability == "", "No Data", 
+                         ifelse(availability == "Chatar", "Chatar", "No Data")),
+    is_extant = ifelse(is.na(is_extant) | is_extant == "", "Unknown", as.character(is_extant))
+  )
+
+# Build hierarchical data structure for sunburst
+# Level 1: Root (center)
+# Level 2: Families 
+# Level 3: Availability within families
+# Level 4: Extant status within availability
+
+# Count species at each level
+species_counts <- mandibles_dataset %>%
+  group_by(family, availability, is_extant) %>%
+  summarise(n_species = n_distinct(accepted_name), .groups = "drop") %>%
+  filter(n_species > 0)
+
+# Create sunburst data structure
+## Build sunburst nodes with unique ids to avoid collisions
+safe_id <- function(x) gsub("[^A-Za-z0-9_:-]", "_", x)
+
+sunburst_data <- tibble(ids=character(), labels=character(), parents=character(), values=numeric(), colors=character())
+
+# Root node
+sunburst_data <- sunburst_data %>% add_row(ids = "root::Carnivora", labels = "Carnivora", parents = "", values = sum(species_counts$n_species), colors = "#CCCCCC")
+
+# Family nodes
+family_data <- species_counts %>% group_by(family) %>% summarise(total_species = sum(n_species), .groups = "drop") %>% arrange(desc(total_species))
+for(i in seq_len(nrow(family_data))) {
+  fam <- family_data$family[i]
+  fam_id <- paste0("fam::", safe_id(fam))
+  total_sp <- family_data$total_species[i]
+  sunburst_data <- sunburst_data %>% add_row(ids = fam_id, labels = paste0(fam, "<br>(", total_sp, " spp)"), parents = "root::Carnivora", values = total_sp, colors = "#888888")
+}
+
+# Availability nodes
+avail_data <- species_counts %>% group_by(family, availability) %>% summarise(total_species = sum(n_species), .groups = "drop")
+for(i in seq_len(nrow(avail_data))) {
+  fam <- avail_data$family[i]
+  fam_id <- paste0("fam::", safe_id(fam))
+  avail <- avail_data$availability[i]
+  avail_id <- paste0(fam_id, "::avail::", safe_id(avail))
+  total_sp <- avail_data$total_species[i]
+  color <- ifelse(avail == "Chatar", "#228B22", "#DC143C")
+  sunburst_data <- sunburst_data %>% add_row(ids = avail_id, labels = paste0(avail, "<br>(", total_sp, " spp)"), parents = fam_id, values = total_sp, colors = color)
+}
+
+# Extant status (leaf) nodes
+for(i in seq_len(nrow(species_counts))) {
+  fam <- species_counts$family[i]
+  fam_id <- paste0("fam::", safe_id(fam))
+  avail <- species_counts$availability[i]
+  avail_id <- paste0(fam_id, "::avail::", safe_id(avail))
+  extant <- species_counts$is_extant[i]
+  node_id <- paste0(avail_id, "::", safe_id(extant))
+  n_sp <- species_counts$n_species[i]
+  color <- ifelse(extant == "extant", "#4169E1", ifelse(extant == "extinct", "#FFD700", "#D3D3D3"))
+  sunburst_data <- sunburst_data %>% add_row(ids = node_id, labels = paste0(extant, "<br>(", n_sp, " spp)"), parents = avail_id, values = n_sp, colors = color)
+}
+
+# Sanity checks
+if(any(duplicated(sunburst_data$ids))) stop("Duplicate ids detected in sunburst_data; aborting")
+
+# Create interactive sunburst chart and pass marker colors explicitly
+fig <- plot_ly(
+  type = "sunburst",
+  ids = sunburst_data$ids,
+  labels = sunburst_data$labels,
+  parents = sunburst_data$parents,
+  values = sunburst_data$values,
+  branchvalues = "total",
+  marker = list(colors = sunburst_data$colors),
+  hovertemplate = "<b>%{label}</b><br>Species: %{value}<br>Percentage: %{percentParent}<extra></extra>",
+  maxdepth = 4,
+  insidetextorientation = 'radial'
+)
+fig <- fig %>% layout(
+  title = list(text = "Interactive Carnivoran Species Distribution", font = list(size = 16)), 
+  font = list(size = 12), 
+  margin = list(t = 50, l = 0, r = 0, b = 0),
+  height = 900,  # Set explicit height to override the default 400px
+  width = NULL   # Let width be responsive
+)
+
+# Make plotly responsive 
+fig <- fig %>% config(responsive = TRUE)
+
+# Wrap in a div that uses viewport height to ensure proper display
+htmltools::div(style = "width:100%; height:80vh; min-height:900px;", fig)
+```
