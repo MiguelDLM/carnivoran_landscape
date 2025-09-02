@@ -27,3 +27,8 @@ _site/
 # renv
 renv/library/
 .Renv/
+
+# Temporary lock / Office temp files (LibreOffice/Excel creates files like .~lock.filename.xlsx#)
+.~lock*
+*~lock*
+*~
