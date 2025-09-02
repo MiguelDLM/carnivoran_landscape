@@ -125,3 +125,132 @@ fig <- fig %>% config(responsive = TRUE)
 # Wrap in a div that uses viewport height to ensure proper display
 htmltools::div(style = "width:100%; height:80vh; min-height:900px;", fig)
 ```
+
+```{r, echo=FALSE}
+# Combined pie charts: Species and Genera availability by extinction status
+# Load the original dataset to avoid conflicts with sunburst modifications
+original_dataset <- read.csv("mandibles_dataset.csv")
+
+# --- Species counts ---
+sp_available_all <- original_dataset %>% 
+  filter(availability %in% c("Chatar", "Ann")) %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+
+sp_not_available_all <- original_dataset %>% 
+  filter(is.na(availability) | availability == "") %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+
+extant_species <- original_dataset %>% filter(is_extant == "extant")
+sp_available_extant <- extant_species %>% 
+  filter(availability %in% c("Chatar", "Ann")) %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+sp_not_available_extant <- extant_species %>% 
+  filter(is.na(availability) | availability == "") %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+
+extinct_species <- original_dataset %>% filter(is_extant == "extinct")
+sp_available_extinct <- extinct_species %>% 
+  filter(availability %in% c("Chatar", "Ann")) %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+sp_not_available_extinct <- extinct_species %>% 
+  filter(is.na(availability) | availability == "") %>% 
+  summarise(n = n_distinct(accepted_name)) %>% pull(n)
+
+species_total <- sp_available_all + sp_not_available_all
+sp_total_extant <- sp_available_extant + sp_not_available_extant
+sp_total_extinct <- sp_available_extinct + sp_not_available_extinct
+
+# --- Genera counts ---
+md <- original_dataset
+md$genus_clean <- md$genus.x
+missing_idx <- is.na(md$genus_clean) | md$genus_clean == ""
+md$genus_clean[missing_idx] <- md$genus.y[missing_idx]
+
+genus_summary <- md %>%
+  filter(!is.na(genus_clean) & genus_clean != "") %>%
+  group_by(genus_clean) %>%
+  summarise(
+    any_available = any(availability %in% c("Chatar", "Ann"), na.rm = TRUE),
+    any_extant = any(is_extant == "extant", na.rm = TRUE),
+    any_extinct = any(is_extant == "extinct", na.rm = TRUE),
+    .groups = "drop"
+  )
+
+genera_total <- nrow(genus_summary)
+genera_available <- sum(genus_summary$any_available)
+genera_not_available <- genera_total - genera_available
+
+genus_extant <- genus_summary %>% filter(any_extant)
+genera_extant_total <- nrow(genus_extant)
+genera_extant_available <- sum(genus_extant$any_available)
+genera_extant_not_available <- genera_extant_total - genera_extant_available
+
+genus_extinct <- genus_summary %>% filter(!any_extant & any_extinct)
+genera_extinct_total <- nrow(genus_extinct)
+genera_extinct_available <- sum(genus_extinct$any_available)
+genera_extinct_not_available <- genera_extinct_total - genera_extinct_available
+
+# --- Build plotly figures ---
+fig_sp_all <- plot_ly(labels = c("Available", "Not available"),
+                      values = c(sp_available_all, sp_not_available_all),
+                      type = 'pie', name = "All Species",
+                      textinfo = 'label+percent+value',
+                      insidetextorientation = 'radial',
+                      marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('All Species (Total: ', species_total, ')'))
+
+fig_sp_extant <- plot_ly(labels = c("Available", "Not available"),
+                         values = c(sp_available_extant, sp_not_available_extant),
+                         type = 'pie', name = "Extant Species",
+                         textinfo = 'label+percent+value',
+                         insidetextorientation = 'radial',
+                         marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('Extant Species (Total: ', sp_total_extant, ')'))
+
+fig_sp_extinct <- plot_ly(labels = c("Available", "Not available"),
+                          values = c(sp_available_extinct, sp_not_available_extinct),
+                          type = 'pie', name = "Extinct Species",
+                          textinfo = 'label+percent+value',
+                          insidetextorientation = 'radial',
+                          marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('Extinct Species (Total: ', sp_total_extinct, ')'))
+
+fig_ge_all <- plot_ly(labels = c("Available", "Not available"),
+                      values = c(genera_available, genera_not_available),
+                      type = 'pie', name = "All Genera",
+                      textinfo = 'label+percent+value',
+                      insidetextorientation = 'radial',
+                      marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('All Genera (Total: ', genera_total, ')'))
+
+fig_ge_extant <- plot_ly(labels = c("Available", "Not available"),
+                         values = c(genera_extant_available, genera_extant_not_available),
+                         type = 'pie', name = "Extant Genera",
+                         textinfo = 'label+percent+value',
+                         insidetextorientation = 'radial',
+                         marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('Extant Genera (Total: ', genera_extant_total, ')'))
+
+fig_ge_extinct <- plot_ly(labels = c("Available", "Not available"),
+                          values = c(genera_extinct_available, genera_extinct_not_available),
+                          type = 'pie', name = "Extinct Genera",
+                          textinfo = 'label+percent+value',
+                          insidetextorientation = 'radial',
+                          marker = list(colors = c('#228B22', '#DC143C'))) %>%
+  layout(title = paste0('Extinct Genera (Total: ', genera_extinct_total, ')'))
+
+# --- Render as two responsive rows ---
+htmltools::tagList(
+  htmltools::div(style = "display:flex; gap:16px; flex-wrap:wrap; align-items:stretch;", 
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_sp_all),
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_sp_extant),
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_sp_extinct)
+  ),
+  htmltools::hr(),
+  htmltools::div(style = "display:flex; gap:16px; flex-wrap:wrap; align-items:stretch;", 
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_ge_all),
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_ge_extant),
+    htmltools::div(style = "flex:1 1 300px; min-width:280px;", fig_ge_extinct)
+  )
+)
+```
