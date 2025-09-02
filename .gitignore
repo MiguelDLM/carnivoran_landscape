@@ -14,7 +14,7 @@ PBDB_carnivora.qmd
 # Excel and other spreadsheet data
 *.xlsx
 *.xls
-.csv
+*.csv
 
 # R saved objects
 *.rda

@@ -15,8 +15,8 @@ execute:
 
 
 ```{r}
-#load RData
-load("PBDB_carnivora_env.RData")
+#load csv
+mandibles_dataset <- read.csv("mandibles_dataset.csv")
 ```
 
 # Interactive Sunburst Chart
@@ -32,8 +32,11 @@ library(htmltools)
 mandibles_dataset <- mandibles_dataset %>%
   mutate(
     family = ifelse(!is.null(family.y) & !is.na(family.y) & family.y != "", as.character(family.y), "Unknown"),
-    availability = ifelse(is.na(availability) | availability == "", "No Data", 
-                         ifelse(availability == "Chatar", "Chatar", "No Data")),
+    # Categorize availability as "Available" if any non-empty value exists, "Not Available" otherwise
+    availability = case_when(
+      !is.na(availability) & availability != "" ~ "Available",
+      TRUE ~ "Not Available"
+    ),
     is_extant = ifelse(is.na(is_extant) | is_extant == "", "Unknown", as.character(is_extant))
   )
 
@@ -75,7 +78,7 @@ for(i in seq_len(nrow(avail_data))) {
   avail <- avail_data$availability[i]
   avail_id <- paste0(fam_id, "::avail::", safe_id(avail))
   total_sp <- avail_data$total_species[i]
-  color <- ifelse(avail == "Chatar", "#228B22", "#DC143C")
+  color <- ifelse(avail == "Available", "#228B22", "#DC143C")  # Green for Available, Red for Not Available
   sunburst_data <- sunburst_data %>% add_row(ids = avail_id, labels = paste0(avail, "<br>(", total_sp, " spp)"), parents = fam_id, values = total_sp, colors = color)
 }
 
